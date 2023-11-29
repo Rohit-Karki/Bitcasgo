@@ -98,8 +98,8 @@ func (b *BitCaspy) put(df *datafile.DataFile, Key string, Value []byte, expiryTi
 	return nil
 }
 
-func (b *BitCaspy) delete(df *datafile.DataFile, Key string) error {
-	if err := b.put(df, Key, nil, nil); err != nil {
+func (b *BitCaspy) delete(Key string) error {
+	if err := b.put(b.df, Key, nil, nil); err != nil {
 		return fmt.Errorf("Error deleting the key: %v", err)
 	}
 	delete(b.KeyDir, Key)

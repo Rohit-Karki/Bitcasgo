@@ -34,7 +34,7 @@ func (r *Record) isExpired() bool {
 	if r.Header.expiry == 0 {
 		return false
 	}
-	return int64(r.Header.expiry) < time.Now().Unix()  
+	return int64(r.Header.expiry) < time.Now().Unix()
 }
 
 func (r *Record) isValidChecksum() bool {
