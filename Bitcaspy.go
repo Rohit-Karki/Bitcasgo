@@ -1,12 +1,8 @@
 package bitcaspy
 
 import (
-	"bytes"
-	"fmt"
 	"os"
-	"path/filepath"
 	"sync"
-	"time"
 
 	"github.com/zerodha/logf"
 	datafile "rohit.com/internal"
@@ -17,16 +13,16 @@ const (
 	HINTS_FILE = "bitcaspy.hints"
 )
 
-type BitCaspy struct{
+type BitCaspy struct {
 	sync.RWMutex
 
-	lo logf.Logger
+	lo      logf.Logger
 	bufPool sync.Pool
-	
+
 	KeyDir KeyDir
-	df *datafile.DataFile
-	stale map[int]*datafile.DataFile
-	flockF *os.File 
+	df     *datafile.DataFile
+	stale  map[int]*datafile.DataFile
+	flockF *os.File
 }
 
 func initLogger(debug bool) logf.Logger {
@@ -37,10 +33,13 @@ func initLogger(debug bool) logf.Logger {
 	return logf.New(opts)
 }
 
-func Init()(*BitCaspy, error){
+func Init() (*BitCaspy, error) {
 	var (
+		index = 0
 		flockF *os.File
-		stale = map[int]*datafile.DataFile{}
-		
+		stale  = map[int]*datafile.DataFile{}
 	)
+
+	// load existing data files
+	// file,err := 
 }

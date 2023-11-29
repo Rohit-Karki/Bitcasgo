@@ -7,7 +7,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func getFLock(flockfile string)(*os.File, error) {
+func getFLock(flockfile string) (*os.File, error) {
 	flockF, err := os.Create(flockfile)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create lock file %q: %w", flockF, err)

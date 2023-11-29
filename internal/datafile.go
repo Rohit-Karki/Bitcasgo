@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	ACTIVE_DATAFILE = "bitcaspy%d.db"
+	ACTIVE_DATAFILE = "bitcaspy_%d.db"
 )
 
 type DataFile struct {
