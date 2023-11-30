@@ -12,7 +12,7 @@ import (
 func (b *BitCaspy) get(key string) (Record, error) {
 	meta, ok := b.KeyDir[key]
 	if !ok {
-		return Record{}, nil
+		return Record{}, ErrNoKey
 	}
 
 	var (
@@ -20,6 +20,7 @@ func (b *BitCaspy) get(key string) (Record, error) {
 		reader *datafile.DataFile
 	)
 	reader = b.df
+	// Isnot in Active data file then go to stale data files
 	if meta.id != b.df.ID() {
 		reader, ok = b.stale[meta.id]
 		if !ok {
@@ -29,7 +30,7 @@ func (b *BitCaspy) get(key string) (Record, error) {
 
 	data, err := reader.Read(meta.value_pos, meta.value_sz)
 	if err != nil {
-		return Record{}, fmt.Errorf("Error reading the dat from database file %v", err)
+		return Record{}, fmt.Errorf("Error reading the data from database file %v", err)
 	}
 
 	//Decode the header
