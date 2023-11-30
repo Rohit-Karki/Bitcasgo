@@ -81,7 +81,7 @@ func (b *BitCaspy) put(df *datafile.DataFile, Key string, Value []byte, expiryTi
 		return fmt.Errorf("Error writing the Record to the data file: %v", err)
 	}
 
-	// Creating the meta objec of the keydir
+	// Creating the meta object of the keydir
 	meta := Meta{
 		id:        df.ID(),
 		value_sz:  len(Value),

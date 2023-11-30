@@ -8,10 +8,10 @@ import (
 type KeyDir map[string]Meta
 
 type Meta struct {
-	id int
-	value_sz int
+	id        int
+	value_sz  int
 	value_pos int
-	tstamp int
+	tstamp    int
 }
 
 func (k *KeyDir) Encode(fPath string) error {
@@ -27,10 +27,10 @@ func (k *KeyDir) Encode(fPath string) error {
 		return err
 	}
 
-	return	nil
+	return nil
 }
 
-func (k *KeyDir) Decode(fPath string) (error) {
+func (k *KeyDir) Decode(fPath string) error {
 	file, err := os.Create(fPath)
 	if err != nil {
 		return err
@@ -43,6 +43,5 @@ func (k *KeyDir) Decode(fPath string) (error) {
 		return err
 	}
 
-	return	nil
-
+	return nil
 }

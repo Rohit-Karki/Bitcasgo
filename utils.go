@@ -19,7 +19,7 @@ func exists(path string) bool {
 }
 
 // returns the list of files in the database directory
-func getDatFiles(outDir string) ([]string, error) {
+func getDataFiles(outDir string) ([]string, error) {
 	if !exists(outDir) {
 		return nil, fmt.Errorf("Error finding the file %s", outDir)
 	}
