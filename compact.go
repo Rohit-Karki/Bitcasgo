@@ -1,4 +1,4 @@
-package bitcaspy
+package bitcasgo
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
-	datafile "rohit.com/internal"
+	datafile "bitcasgo/internal"
 )
 
 // checkFileSize delegates to rotateDf checks the file size for the mac file size

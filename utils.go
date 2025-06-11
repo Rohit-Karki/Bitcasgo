@@ -1,4 +1,4 @@
-package bitcaspy
+package bitcasgo
 
 import (
 	"fmt"
@@ -34,7 +34,7 @@ func getDataFiles(outDir string) ([]string, error) {
 // Returns the list of sorted ids of the file
 func getIds(files []string) ([]int, error) {
 	ids := make([]int, 0)
-
+	fmt.Printf("Files: %v\n", files)
 	for _, file := range files {
 		id, err := strconv.ParseInt((strings.TrimPrefix(strings.TrimSuffix(filepath.Base(file), ".db"), "bitcaspy_")), 10, 32)
 		if err != nil {

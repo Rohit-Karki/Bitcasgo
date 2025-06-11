@@ -1,4 +1,4 @@
-package bitcaspy
+package bitcasgo
 
 import (
 	"bytes"
@@ -6,62 +6,77 @@ import (
 	"hash/crc32"
 	"time"
 
-	datafile "rohit.com/internal"
+	datafile "bitcasgo/internal"
 )
 
 func (b *BitCaspy) get(key string) (Record, error) {
 	meta, ok := b.KeyDir[key]
+	fmt.Println("Meta: ", meta)
 	if !ok {
 		return Record{}, ErrNoKey
 	}
 
 	var (
-		Header Header
+		header Header
 		reader *datafile.DataFile
 	)
 	reader = b.df
 	// Isnot in Active data file then go to stale data files
-	if meta.id != b.df.ID() {
-		reader, ok = b.stale[meta.id]
+	if meta.fileId != b.df.ID() {
+		reader, ok = b.stale[meta.fileId]
 		if !ok {
-			return Record{}, fmt.Errorf("error for looking for the key  in the file %s", meta.id)
+			return Record{}, fmt.Errorf("error for looking for the key  in the file %s", meta.fileId)
 		}
 	}
 
-	data, err := reader.Read(meta.value_pos, meta.value_sz)
+	// Read header first
+	data, err := reader.Read(meta.RecordPos, meta.RecordSize)
+	// headerData, err := reader.Read(meta.value_pos, int(binary.Size(header)))
 	if err != nil {
-		return Record{}, fmt.Errorf("Error reading the data from database file %v", err)
+		return Record{}, fmt.Errorf("Error reading header from database file: %v", err)
 	}
 
-	//Decode the header
-	if err := Header.Decode(data); err != nil {
-		return Record{}, fmt.Errorf("Error decoding the header")
+	// Decode the header
+	if err := header.Decode(data); err != nil {
+		return Record{}, fmt.Errorf("Error decoding header: %v", err)
 	}
-
+	fmt.Printf("Decoded header: %+v\n", header)
 	var (
-		offset = meta.value_pos + meta.value_sz
-		val    = data[offset:]
+		valPos    = meta.RecordSize - int(header.Vsz)
+		valueData = data[valPos:]
 	)
+	fmt.Println("Value Data: ", valueData)
+	if err != nil {
+		return Record{}, fmt.Errorf("Error reading value from database file: %v", err)
+	}
+
 	record := Record{
-		Header: Header,
+		Header: header,
 		Key:    key,
-		Value:  val,
+		Value:  valueData,
 	}
 	return record, nil
 }
 
 func (b *BitCaspy) put(df *datafile.DataFile, Key string, Value []byte, expiryTime *time.Time) error {
+
 	// Prepare the header
 	header := Header{
-		crc:    crc32.ChecksumIEEE(Value),
-		tstamp: uint32(time.Now().Unix()),
-		ksz:    uint32(len(Key)),
-		vsz:    uint32(len(Value)),
+		Crc:    crc32.ChecksumIEEE(Value),
+		Tstamp: uint32(time.Now().Unix()),
+		Ksz:    uint32(len(Key)),
+		Vsz:    uint32(len(Value)),
 	}
+	fmt.Println("Header: ", header.Crc, header.Tstamp, header.Ksz, header.Vsz)
 	if expiryTime != nil {
-		header.expiry = uint32(expiryTime.Unix())
+		header.Expiry = uint32(expiryTime.Unix())
 	} else {
-		header.expiry = 0
+		header.Expiry = 0
+	}
+
+	record := Record{
+		Key:   Key,
+		Value: Value,
 	}
 
 	// Get the buffer from the pool for writing data.
@@ -78,17 +93,19 @@ func (b *BitCaspy) put(df *datafile.DataFile, Key string, Value []byte, expiryTi
 	buf.Write(Value)
 
 	offset, err := df.Write(buf.Bytes())
+	fmt.Println("Offset: ", offset)
 	if err != nil {
 		return fmt.Errorf("Error writing the Record to the data file: %v", err)
 	}
 
 	// Creating the meta object of the keydir
 	meta := Meta{
-		id:        df.ID(),
-		value_sz:  len(Value),
-		value_pos: offset,
-		tstamp:    int(header.tstamp),
+		fileId:     df.ID(),
+		RecordSize: len(buf.Bytes()),
+		RecordPos:  offset + len(buf.Bytes()),
+		tstamp:     int(record.Header.Tstamp),
 	}
+	fmt.Println("Meta: ", meta)
 
 	b.KeyDir[Key] = meta
 

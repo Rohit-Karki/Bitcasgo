@@ -1,4 +1,4 @@
-package bitcaspy
+package bitcasgo
 
 import (
 	"encoding/gob"
@@ -7,11 +7,12 @@ import (
 
 type KeyDir map[string]Meta
 
+// Meta is stored as value in keyDir and keys are the keys in the database
 type Meta struct {
-	id        int
-	value_sz  int
-	value_pos int
-	tstamp    int
+	fileId     int
+	RecordSize int
+	RecordPos  int
+	tstamp     int
 }
 
 func (k *KeyDir) Encode(fPath string) error {
@@ -31,17 +32,21 @@ func (k *KeyDir) Encode(fPath string) error {
 }
 
 func (k *KeyDir) Decode(fPath string) error {
-	file, err := os.Create(fPath)
+	file, err := os.Open(fPath)
 	if err != nil {
-		return err
+		return nil // Return nil if file doesn't exist
 	}
 	defer file.Close()
 
 	decoder := gob.NewDecoder(file)
 
-	if err := decoder.Decode(k); err != nil {
+	// Create a new map to decode into
+	newKeyDir := make(KeyDir)
+	if err := decoder.Decode(&newKeyDir); err != nil {
 		return err
 	}
 
+	// Replace the current keydir with the decoded one
+	*k = newKeyDir
 	return nil
 }

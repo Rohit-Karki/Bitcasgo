@@ -1,4 +1,4 @@
-package bitcaspy
+package bitcasgo
 
 import (
 	"bytes"
@@ -14,11 +14,11 @@ type Record struct {
 }
 
 type Header struct {
-	crc    uint32
-	tstamp uint32
-	expiry uint32
-	ksz    uint32
-	vsz    uint32
+	Crc    uint32
+	Tstamp uint32
+	Expiry uint32
+	Ksz    uint32
+	Vsz    uint32
 }
 
 func (h *Header) Encode(buf *bytes.Buffer) error {
@@ -31,12 +31,12 @@ func (h *Header) Decode(record []byte) error {
 }
 
 func (r *Record) isExpired() bool {
-	if r.Header.expiry == 0 {
+	if r.Header.Expiry == 0 {
 		return false
 	}
-	return int64(r.Header.expiry) < time.Now().Unix()
+	return int64(r.Header.Expiry) < time.Now().Unix()
 }
 
 func (r *Record) isValidChecksum() bool {
-	return crc32.ChecksumIEEE(r.Value) == r.Header.crc
+	return crc32.ChecksumIEEE(r.Value) == r.Header.Crc
 }

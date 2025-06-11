@@ -1,4 +1,4 @@
-package bitcaspy
+package bitcasgo
 
 import (
 	"bytes"
@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/zerodha/logf"
-	datafile "rohit.com/internal"
+	datafile "bitcasgo/internal"
 )
 
 const (
@@ -98,12 +98,14 @@ func Init(cfg ...Config) (*BitCaspy, error) {
 	// Create a empty keyDirectory
 	KeyDir := make(KeyDir, 0)
 
-	//Check if there is a hint file which we will decode and put those hashmap from hint files to keydir
+	// Initialize key directory from hint file if it exists
 	hintPath := filepath.Join(opts.dir, HINTS_FILE)
 	if exists(hintPath) {
 		if err := KeyDir.Decode(hintPath); err != nil {
-			return nil, fmt.Errorf("failed to decode hint file %s: %v", hintPath, err)
+			lo.Error("Failed to decode hint file", "path", hintPath, "error", err)
 		}
+	} else {
+		lo.Info("No hint file found, starting fresh", "path", hintPath)
 	}
 
 	BitCaspy := &BitCaspy{
@@ -119,9 +121,9 @@ func Init(cfg ...Config) (*BitCaspy, error) {
 		flockF: flockF,
 	}
 
-	go BitCaspy.runCompaction(BitCaspy.opts.compactInterval)
+	// go BitCaspy.runCompaction(BitCaspy.opts.compactInterval)
 
-	go BitCaspy.checkFileSize(BitCaspy.opts.checkFileSizeInterval)
+	// go BitCaspy.checkFileSize(BitCaspy.opts.checkFileSizeInterval)
 
 	// if BitCaspy.opts.syncInterval != nil{
 	// 	go BitCaspy.syn

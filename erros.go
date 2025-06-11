@@ -1,4 +1,4 @@
-package bitcaspy
+package bitcasgo
 
 import "errors"
 

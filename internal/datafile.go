@@ -1,4 +1,4 @@
-package datafile
+package bitcasgo
 
 import (
 	"fmt"
@@ -89,7 +89,7 @@ func (d *DataFile) Write(data []byte) (int, error) {
 
 	offset := d.offset
 
-	offset += len(data)
+	d.offset += len(data)
 
 	return offset, nil
 }
@@ -106,6 +106,6 @@ func (d *DataFile) Close() error {
 	return nil
 }
 
-func (d *DataFile) Sync () error {
+func (d *DataFile) Sync() error {
 	return d.writer.Sync()
 }
