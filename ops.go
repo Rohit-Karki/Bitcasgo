@@ -11,7 +11,6 @@ import (
 
 func (b *BitCaspy) get(key string) (Record, error) {
 	meta, ok := b.KeyDir[key]
-	fmt.Println("Meta: ", meta)
 	if !ok {
 		return Record{}, ErrNoKey
 	}
@@ -110,8 +109,10 @@ func (b *BitCaspy) put(df *datafile.DataFile, Key string, Value []byte, expiryTi
 	b.KeyDir[Key] = meta
 
 	// Ensure that the inmemory data of the buffer is always pushed onto the disk
-	if err := df.Sync(); err != nil {
-		return fmt.Errorf("Error syncing the buffer to the disk: %v", err)
+	if b.opts.alwaysFSync {
+		if err := df.Sync(); err != nil {
+			return fmt.Errorf("Error syncing the buffer to the disk: %v", err)
+		}
 	}
 	return nil
 }

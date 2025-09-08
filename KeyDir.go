@@ -34,7 +34,10 @@ func (k *KeyDir) Encode(fPath string) error {
 func (k *KeyDir) Decode(fPath string) error {
 	file, err := os.Open(fPath)
 	if err != nil {
-		return nil // Return nil if file doesn't exist
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
 	}
 	defer file.Close()
 

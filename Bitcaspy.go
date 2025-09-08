@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/zerodha/logf"
 	datafile "bitcasgo/internal"
@@ -43,7 +44,7 @@ func Init(cfg ...Config) (*BitCaspy, error) {
 
 	for _, opt := range cfg {
 		if err := opt(opts); err != nil {
-
+			return nil, fmt.Errorf("applying option failed: %w", err)
 		}
 	}
 	var (
@@ -52,6 +53,13 @@ func Init(cfg ...Config) (*BitCaspy, error) {
 		flockF *os.File
 		stale  = map[int]*datafile.DataFile{}
 	)
+
+	// ensure data dir exists
+	if !exists(opts.dir) {
+		if err := os.MkdirAll(opts.dir, 0o755); err != nil {
+			return nil, fmt.Errorf("error creating data dir %q: %w", opts.dir, err)
+		}
+	}
 
 	// load existing data files
 	datafiles, err := getDataFiles(opts.dir)
@@ -82,17 +90,24 @@ func Init(cfg ...Config) (*BitCaspy, error) {
 	if !opts.readOnly {
 		lockFilePath := filepath.Join(opts.dir, LOCKFILE)
 		if !exists(lockFilePath) {
-			_, err := getFLock(lockFilePath)
+			flock, err := getFLock(lockFilePath)
 			if err != nil {
 				return nil, err
 			}
+			flockF = flock
+		} else {
+			flock, err := getFLock(lockFilePath)
+			if err != nil {
+				return nil, err
+			}
+			flockF = flock
 		}
 	}
 
 	// Create a new active datafile
 	df, err := datafile.New(opts.dir, index)
 	if err != nil {
-		fmt.Errorf("error creating new datafile: %v", err)
+		return nil, fmt.Errorf("error creating new datafile: %v", err)
 	}
 
 	// Create a empty keyDirectory
@@ -100,12 +115,8 @@ func Init(cfg ...Config) (*BitCaspy, error) {
 
 	// Initialize key directory from hint file if it exists
 	hintPath := filepath.Join(opts.dir, HINTS_FILE)
-	if exists(hintPath) {
-		if err := KeyDir.Decode(hintPath); err != nil {
-			lo.Error("Failed to decode hint file", "path", hintPath, "error", err)
-		}
-	} else {
-		lo.Info("No hint file found, starting fresh", "path", hintPath)
+	if err := KeyDir.Decode(hintPath); err != nil {
+		lo.Error("Failed to decode hint file", "path", hintPath, "error", err)
 	}
 
 	BitCaspy := &BitCaspy{
@@ -121,13 +132,21 @@ func Init(cfg ...Config) (*BitCaspy, error) {
 		flockF: flockF,
 	}
 
-	// go BitCaspy.runCompaction(BitCaspy.opts.compactInterval)
-
-	// go BitCaspy.checkFileSize(BitCaspy.opts.checkFileSizeInterval)
-
-	// if BitCaspy.opts.syncInterval != nil{
-	// 	go BitCaspy.syn
-	// }
+	// background workers
+	if !BitCaspy.opts.readOnly {
+		go BitCaspy.runCompaction(BitCaspy.opts.compactInterval)
+		go BitCaspy.checkFileSize(BitCaspy.opts.checkFileSizeInterval)
+	}
+	if BitCaspy.opts.syncInterval != nil && !BitCaspy.opts.alwaysFSync {
+		interval := *BitCaspy.opts.syncInterval
+		go func() {
+			t := time.NewTicker(interval)
+			defer t.Stop()
+			for range t.C {
+				_ = BitCaspy.Sync()
+			}
+		}()
+	}
 
 	return BitCaspy, nil
 }
@@ -138,18 +157,23 @@ func (b *BitCaspy) Close() error {
 
 	// Generate Hint files from the keydir
 	if err := b.genrateHintFiles(); err != nil {
-		fmt.Errorf("Error generating Hint files from keydir: %v", err)
+		b.lo.Error("Error generating Hint files from keydir", "error", err)
 	}
 
 	// Close the active data file
 	if err := b.df.Close(); err != nil {
-		fmt.Errorf("Error closing active data file: %v", err)
+		b.lo.Error("Error closing active data file", "error", err)
 	}
 
 	// Close all the stale data files
 	for _, df := range b.stale {
 		if err := df.Close(); err != nil {
-			fmt.Errorf("Error closing stale data file: %v", err)
+			b.lo.Error("Error closing stale data file", "error", err)
+		}
+	}
+	if b.flockF != nil {
+		if err := destroyFLock(b.flockF); err != nil {
+			b.lo.Error("Error releasing file lock", "error", err)
 		}
 	}
 	return nil
@@ -158,6 +182,8 @@ func (b *BitCaspy) Close() error {
 // Gets the key from the keydir and then checks for the key in the keydir hashmap
 // Then it goes to the value offset in the data file
 func (b *BitCaspy) Get(key string) ([]byte, error) {
+	b.RLock()
+	defer b.RUnlock()
 	record, err := b.get(key)
 	if err != nil {
 		return nil, err
@@ -176,7 +202,17 @@ func (b *BitCaspy) Put(key string, value []byte) error {
 	if b.opts.readOnly {
 		return ErrReadOnly
 	}
-	//
+	if key == "" {
+		return ErrEmptyKey
+	}
+	if uint64(len(key)) > uint64(^uint32(0)) {
+		return ErrLargeKey
+	}
+	if uint64(len(value)) > uint64(^uint32(0)) {
+		return ErrLargeValue
+	}
+	b.Lock()
+	defer b.Unlock()
 	return b.put(b.df, key, value, nil)
 }
 
@@ -190,26 +226,30 @@ func (b *BitCaspy) Delete(key string) error {
 }
 
 func (b *BitCaspy) list_keys() []string {
-	b.Lock()
-	defer b.Unlock()
-	key_lists := make([]string, 0, len(b.KeyDir))
-
+	b.RLock()
+	keys := make([]string, 0, len(b.KeyDir))
 	for key := range b.KeyDir {
-		key_lists = append(key_lists, key)
+		keys = append(keys, key)
 	}
-	return key_lists
+	b.RUnlock()
+	return keys
 }
 
 func (b *BitCaspy) Fold(foldingFunc func(key string, value []byte, acc string) error) error {
-	b.Lock()
-	defer b.Unlock()
+	// take a snapshot of keys under read lock
+	b.RLock()
+	keys := make([]string, 0, len(b.KeyDir))
+	for key := range b.KeyDir {
+		keys = append(keys, key)
+	}
+	b.RUnlock()
 
-	for key, _ := range b.KeyDir {
-		value, err := b.Get(key)
+	for _, key := range keys {
+		val, err := b.Get(key)
 		if err != nil {
 			return err
 		}
-		if err := foldingFunc(key, value, "rohit"); err != nil {
+		if err := foldingFunc(key, val, ""); err != nil {
 			return err
 		}
 	}

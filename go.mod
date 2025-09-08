@@ -1,6 +1,6 @@
 module bitcasgo
 
-go 1.24.2
+go 1.22
 
 require (
 	github.com/zerodha/logf v0.5.5

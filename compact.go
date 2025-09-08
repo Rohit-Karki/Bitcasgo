@@ -33,13 +33,13 @@ func (b *BitCaspy) runCompaction(evalInterval time.Duration) {
 	)
 	for range evalTicker {
 		if err := b.deleteIfExpired(); err != nil {
-			fmt.Errorf("Error deleting expired datafiles %v", err)
+			b.lo.Error("Error deleting expired datafiles", "error", err)
 		}
 		if err := b.merge(); err != nil {
-			fmt.Errorf("Error merging stale datafiles %v", err)
+			b.lo.Error("Error merging stale datafiles", "error", err)
 		}
 		if err := b.genrateHintFiles(); err != nil {
-			fmt.Errorf("Error genrating hint file %v", err)
+			b.lo.Error("Error generating hint file", "error", err)
 		}
 	}
 }
@@ -56,7 +56,7 @@ func (b *BitCaspy) rotateDf() error {
 	}
 
 	// If smaller than threshold no action
-	if size < 20000 {
+	if size < b.opts.maxActiveFileSize {
 		return nil
 	}
 	oldId := b.df.ID()
@@ -113,7 +113,7 @@ func (b *BitCaspy) merge() error {
 	defer os.RemoveAll(tmpMergeDir)
 	newFile, err := datafile.New(tmpMergeDir, 0)
 	if err != nil {
-		fmt.Errorf("Error creating new datafile: %v", err)
+		b.lo.Error("Error creating new datafile", "error", err)
 	}
 
 	// Loop over all the active keys from the keydir and

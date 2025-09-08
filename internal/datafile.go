@@ -1,4 +1,4 @@
-package bitcasgo
+package internal
 
 import (
 	"fmt"
